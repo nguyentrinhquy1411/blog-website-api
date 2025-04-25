@@ -11,7 +11,10 @@ class UserBase(BaseModel):
     bio: Optional[str] = None
     profile_picture: Optional[str] = None
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    email: EmailStr
+    username: str = Field(..., min_length=3, max_length=50)
+    full_name: Optional[str] = Field(None, max_length=100)
     password: str = Field(..., min_length=8)
 
 class UserUpdate(BaseModel):

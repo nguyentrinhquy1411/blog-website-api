@@ -8,4 +8,4 @@ sleep 5
 echo "Running migrations..."
 alembic upgrade head
 
-echo "Migrations completed." 
+echo "Migrations completed."
