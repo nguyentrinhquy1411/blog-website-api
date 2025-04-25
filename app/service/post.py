@@ -32,14 +32,15 @@ async def get_posts(
     skip: int = 0, 
     limit: int = 100,
     published_only: bool = True,
-    category_id: UUID = None
+    category_id: UUID = None,
+    author_id: UUID = None,
+    tag_id: UUID = None
 ):
     query = select(Post).options(
         selectinload(Post.author),
         selectinload(Post.categories),
         selectinload(Post.tags),
         selectinload(Post.media)
-        
     )
     
     if published_only:
@@ -49,24 +50,19 @@ async def get_posts(
     if category_id:
         query = query.join(Post.categories).where(Category.category_id == category_id)
     
+    # Filter by author if provided
+    if author_id:
+        query = query.where(Post.author_id == author_id)
+    
+    # Filter by tag if provided
+    if tag_id:
+        query = query.join(Post.tags).where(Tag.tag_id == tag_id)
+    
+    # Order by created date, newest first
+    query = query.order_by(Post.created_at.desc())
+    
     result = await db.execute(query.offset(skip).limit(limit))
     return result.scalars().all()
-
-# async def get_post_by_slug_or_404(db: AsyncSession, slug: str):
-#     result = await db.execute(
-#         select(Post)
-#         .where(Post.slug == slug)
-#         .options(selectinload(Post.author))
-#     )
-#     post = result.scalars().first()
-    
-#     if not post:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="Post not found"
-#         )
-    
-#     return post
 
 async def get_post_by_slug(db: AsyncSession, slug: str):
     result = await db.execute(

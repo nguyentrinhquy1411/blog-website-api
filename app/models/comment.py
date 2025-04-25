@@ -9,10 +9,9 @@ class Comment(BaseModel):
 
     comment_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     content = Column(Text, nullable=False)
-    post_id = Column(UUID(as_uuid=True), ForeignKey("posts.post_id"), nullable=False)
+    post_id = Column(UUID(as_uuid=True), ForeignKey("posts.post_id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
-    parent_id = Column(UUID(as_uuid=True), ForeignKey("comments.comment_id"), nullable=True)
-    is_approved = Column(Boolean, server_default=text("false"))
+    parent_id = Column(UUID(as_uuid=True), ForeignKey("comments.comment_id", ondelete="CASCADE"), nullable=True)
 
     # Relationships
     replies = relationship(

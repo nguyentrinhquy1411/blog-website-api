@@ -1,14 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..schemas.auth import LoginRequest, TokenResponse
+from ..schemas.auth import LoginRequest, TokenResponse, UserMeResponse, RefreshTokenRequest
+from ..schemas.user import UserOut
 from ..database.session import get_db
 from ..service import authenticate_user
-from ..utils.security.jwt import create_access_token, create_refresh_token
+from ..utils.security.jwt import create_access_token, create_refresh_token, verify_token
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from app.utils.security.jwt import verify_token
-from app.schemas.auth import UserMeResponse, RefreshTokenRequest
-from app.models.user import User
+from ..models.user import User
 from typing import Annotated
 
 
@@ -18,27 +17,35 @@ security = HTTPBearer()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(data: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    """Login with email and password"""
     user = await authenticate_user(db, data.email, data.password)
     access_token = create_access_token(user_id=str(user.user_id))
-    refresh_token=create_refresh_token(user_id=str(user.user_id))
+    refresh_token = create_refresh_token(user_id=str(user.user_id))
+    
+    # Set refresh token as a secure HTTP-only cookie (helpful for automatic refreshes)
+    # response.set_cookie(
+    #     key="refresh_token",
+    #     value=refresh_token,
+    #     httponly=True,
+    #     secure=True,  # Set to True in production with HTTPS
+    #     samesite="lax",
+    #     max_age=30 * 24 * 60 * 60  # 30 days in seconds
+    # )
+    
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_tokens(
     data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Get new access token using refresh token
-    """
+    """Get new access token using refresh token"""
     try:
         # Verify the refresh token
         payload = verify_token(data.refresh_token, token_type="refresh")
         
-        # Convert sub to UUID for query
+        # Get user ID from token payload
         user_id = payload.sub
         
         # Get user from database using async query
@@ -50,6 +57,12 @@ async def refresh_tokens(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
+            )
+            
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
             )
 
         # Create new tokens
@@ -71,12 +84,12 @@ async def refresh_tokens(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-@router.get("/me", response_model=UserMeResponse)
+@router.get("/me", response_model=UserOut)
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    # token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
+    """Get current authenticated user information"""
     try:
         payload = verify_token(credentials.credentials)
         
@@ -99,6 +112,8 @@ async def get_current_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Inactive user"
             )
+            
+        return user
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -107,5 +122,3 @@ async def get_current_user(
             detail=f"Could not validate credentials: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return user
-    

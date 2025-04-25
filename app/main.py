@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import os  # Add this import to check environment variables
 
 from .database import init_db
 from .routes import user_router, post_router, auth_router, test_router, category_router, tag_router, media_router, comment_router
@@ -6,6 +7,7 @@ from .middlewares.core import setup_cors
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from redis import asyncio as aioredis
+from .config import settings  # Import settings
 
 def create_app() -> FastAPI:
     """Factory function để tạo app (hữu ích khi testing)"""
@@ -21,6 +23,15 @@ def create_app() -> FastAPI:
     # Event handlers
     @app.on_event("startup")
     async def startup():
+        # Debug environment variables
+        print("Environment variables for Cloudinary:")
+        print(f"CLOUD_NAME: '{os.getenv('CLOUD_NAME')}'")
+        print(f"API_KEY: '{os.getenv('API_KEY')}'")
+        print(f"API_SECRET: '{os.getenv('API_SECRET')}'")
+        print(f"From settings - CLOUD_NAME: '{settings.CLOUD_NAME}'")
+        print(f"From settings - API_KEY: '{settings.API_KEY}'")
+        print(f"From settings - API_SECRET: '{settings.API_SECRET if settings.API_SECRET else 'Not set'}'")
+        
         await init_db()
         # Có thể thêm các khởi tạo khác ở đây
         redis = aioredis.from_url("redis://redis:6379", encoding="utf-8", decode_responses=True)

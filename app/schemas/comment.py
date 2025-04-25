@@ -11,9 +11,12 @@ class CommentCreate(CommentBase):
     post_id: UUID
     parent_id: Optional[UUID] = None
 
+# Specific schema for replying to a comment
+class CommentReply(CommentBase):
+    post_id: UUID  # Still needed to associate with the post
+
 class CommentUpdate(BaseModel):
     content: Optional[str] = None
-    is_approved: Optional[bool] = None
 
 # Define a basic comment out without replies first
 class CommentOutBase(CommentBase):
@@ -21,7 +24,6 @@ class CommentOutBase(CommentBase):
     post_id: UUID
     user_id: UUID
     parent_id: Optional[UUID] = None
-    is_approved: bool
     created_at: datetime
     updated_at: datetime
     user: UserOut
@@ -35,4 +37,4 @@ class CommentOut(CommentOutBase):
     model_config = ConfigDict(from_attributes=True)
 
 # Required for self-referencing model
-CommentOut.model_rebuild() 
+CommentOut.model_rebuild()

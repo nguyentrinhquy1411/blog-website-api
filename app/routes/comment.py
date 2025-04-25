@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import User
-from ..schemas.comment import CommentCreate, CommentUpdate, CommentOut
+from ..schemas.comment import CommentCreate, CommentUpdate, CommentOut, CommentReply
 from ..service import comment as comment_service
 from ..auth.dependencies import get_current_user
 
@@ -20,12 +20,51 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Create a new comment for a post.
+    Can be a reply to another comment by providing parent_id.
+    """
     try:
         return await comment_service.create_comment(db, comment, current_user.user_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to create comment: {str(e)}"
+        )
+
+@router.post("/{comment_id}/reply", response_model=CommentOut)
+async def reply_to_comment(
+    comment_id: UUID,
+    reply: CommentReply,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a reply to an existing comment.
+    """
+    try:
+        # First verify the parent comment exists
+        parent_comment = await comment_service.get_comment(db, comment_id)
+        if not parent_comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent comment not found"
+            )
+        
+        # Create the reply
+        return await comment_service.reply_to_comment(
+            db, 
+            parent_comment_id=comment_id,
+            reply_content=reply.content,
+            post_id=reply.post_id,
+            user_id=current_user.user_id
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create reply: {str(e)}"
         )
 
 @router.get("/post/{post_id}", response_model=List[CommentOut])
@@ -35,6 +74,9 @@ async def get_comments_by_post(
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Get all root comments for a post with their replies.
+    """
     try:
         comments = await comment_service.get_comments_by_post(db, post_id, skip, limit)
         return comments
@@ -51,6 +93,9 @@ async def get_comments_by_user(
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Get all comments created by a specific user.
+    """
     try:
         comments = await comment_service.get_comments_by_user(db, user_id, skip, limit)
         return comments
@@ -65,6 +110,9 @@ async def get_comment(
     comment_id: UUID,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Get a specific comment by ID with its replies.
+    """
     try:
         comment = await comment_service.get_comment(db, comment_id)
         if not comment:
@@ -81,6 +129,37 @@ async def get_comment(
             detail=f"Failed to get comment: {str(e)}"
         )
 
+@router.get("/{comment_id}/replies", response_model=List[CommentOut])
+async def get_replies_for_comment(
+    comment_id: UUID,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all direct replies for a specific comment.
+    Useful for paginated loading of comment replies.
+    """
+    try:
+        # First verify the parent comment exists
+        parent_comment = await comment_service.get_comment(db, comment_id)
+        if not parent_comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Comment not found"
+            )
+        
+        # Get the replies
+        replies = await comment_service.get_replies_for_comment(db, comment_id, skip, limit)
+        return replies
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get replies: {str(e)}"
+        )
+
 @router.patch("/{comment_id}", response_model=CommentOut)
 async def update_comment(
     comment_id: UUID,
@@ -88,6 +167,10 @@ async def update_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Update a comment's content.
+    Only the comment owner or superuser can update a comment.
+    """
     try:
         db_comment = await comment_service.get_comment(db, comment_id)
         if not db_comment:
@@ -118,6 +201,11 @@ async def delete_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Delete a comment.
+    Only the comment owner or superuser can delete a comment.
+    Deleting a comment also deletes all its replies.
+    """
     try:
         db_comment = await comment_service.get_comment(db, comment_id)
         if not db_comment:
@@ -141,4 +229,4 @@ async def delete_comment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to delete comment: {str(e)}"
-        ) 
+        )
