@@ -15,7 +15,8 @@ async def get_post(db: AsyncSession, post_id: UUID):
             selectinload(Post.author),
             selectinload(Post.categories),
             selectinload(Post.tags),
-            selectinload(Post.comments)
+            selectinload(Post.comments),
+            selectinload(Post.media)
         )
     )
     post = result.scalars().first()
@@ -36,7 +37,9 @@ async def get_posts(
     query = select(Post).options(
         selectinload(Post.author),
         selectinload(Post.categories),
-        selectinload(Post.tags)
+        selectinload(Post.tags),
+        selectinload(Post.media)
+        
     )
     
     if published_only:
@@ -73,7 +76,8 @@ async def get_post_by_slug(db: AsyncSession, slug: str):
             selectinload(Post.author),
             selectinload(Post.categories),
             selectinload(Post.tags),
-            selectinload(Post.comments)
+            selectinload(Post.comments),
+            selectinload(Post.media)
         )
     )
     return result.scalars().first()
@@ -121,7 +125,8 @@ async def create_user_post(
         .options(
             joinedload(Post.author),
             joinedload(Post.categories),
-            joinedload(Post.tags)
+            joinedload(Post.tags),
+            joinedload(Post.media)
         )
     )
     return result.unique().scalar_one()
@@ -179,7 +184,8 @@ async def update_post(
         .options(
             joinedload(Post.author),
             joinedload(Post.categories),
-            joinedload(Post.tags)
+            joinedload(Post.tags),
+            joinedload(Post.media)
         )
     )
     return result.unique().scalar_one()

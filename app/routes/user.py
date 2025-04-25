@@ -12,6 +12,8 @@ from ..dependencies import require_superuser, get_current_user
 from typing import List, Annotated
 import uuid
 from fastapi_cache.decorator import cache
+from slugify import slugify
+from unidecode import unidecode
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -81,7 +83,9 @@ async def create_post_for_user(
     post: PostCreate, 
     db: AsyncSession = Depends(get_db)
 ):
-    return await post_service.create_user_post(db=db, post=post, user_id=user_id)
+    # Generate slug from title
+    slug = slugify(unidecode(post.title))
+    return await post_service.create_user_post(db=db, post=post, user_id=user_id, slug=slug)
 
 @router.put("/{user_id}", response_model=UserOut)
 async def update_user(
