@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Đợi PostgreSQL khởi động
-echo "Waiting for PostgreSQL to start..."
-sleep 5
+# Notify about the database connection
+echo "Connecting to Railway PostgreSQL database..."
 
-# Chạy migrations
+# Run migrations
 echo "Running migrations..."
 alembic upgrade head
 
