@@ -55,7 +55,7 @@ logs/
 *.log
 
 # Database
-*.sqlite3
-*.db
-postgres_data/
-pgadmin_data/
+# *.sqlite3
+# *.db
+# postgres_data/
+# pgadmin_data/
